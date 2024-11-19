@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:stack_trace/stack_trace.dart';
 
 enum Level { verbose, debug, info, warning, error, nothing }
 
@@ -6,33 +7,35 @@ class LoggerImpl {
   bool _isEnabled = true;
   Level level = Level.verbose;
 
-  // Public methods
-  void enable() {
-    _isEnabled = true;
-    level = Level.verbose;
+  String _getFileLocation() {
+    try {
+      final trace = StackTrace.current.toString();
+      final frames = trace.split('\n');
+
+      for (var frame in frames) {
+        frame = frame.trim();
+        // Tìm frame có format "#<number>      <method> (package:...)"
+        if (frame.contains('(package:')) {
+          // Lấy phần path trong dấu ngoặc đơn
+          final pathMatch = RegExp(r'\(package:(.*?)\)').firstMatch(frame);
+          if (pathMatch != null) {
+            final path = pathMatch.group(1);
+            // Kiểm tra path không bắt đầu với logger_manager hoặc flutter
+            if (path != null &&
+                !path.startsWith('logger_manager/') &&
+                !path.startsWith('flutter/') &&
+                !path.startsWith('dart:')) {
+              return 'package:$path';
+            }
+          }
+        }
+      }
+      return 'unknown location';
+    } catch (e) {
+      return 'unknown location';
+    }
   }
 
-  void disable() {
-    _isEnabled = false;
-    level = Level.nothing;
-  }
-
-  void d(String message, {String? tag}) => _log(Level.debug, message, tag: tag);
-
-  void i(String message, {String? tag}) => _log(Level.info, message, tag: tag);
-
-  void w(String message, {String? tag}) =>
-      _log(Level.warning, message, tag: tag);
-
-  void e(String message,
-          {String? tag, dynamic error, StackTrace? stackTrace}) =>
-      _log(Level.error, message,
-          tag: tag, error: error, stackTrace: stackTrace);
-
-  void v(String message, {String? tag}) =>
-      _log(Level.verbose, message, tag: tag);
-
-  // Private helper methods
   String _getEmoji(Level logLevel) {
     switch (logLevel) {
       case Level.verbose:
@@ -62,23 +65,6 @@ class LoggerImpl {
         "${now.millisecond.toString().padLeft(3, '0')}";
   }
 
-  String _formatStackTrace(StackTrace stackTrace) {
-    return stackTrace
-        .toString()
-        .split('\n')
-        .map((line) {
-          if (line.contains('LoggerImpl')) return null;
-          final match = RegExp(r'package:.*?.dart:\d+').firstMatch(line);
-          if (match != null) {
-            return '  ${match.group(0)}';
-          }
-          return null;
-        })
-        .where((line) => line != null)
-        .take(3)
-        .join('\n');
-  }
-
   void _log(Level logLevel, String message,
       {String? tag, dynamic error, StackTrace? stackTrace}) {
     if (!_isEnabled || level == Level.nothing || logLevel.index < level.index) {
@@ -88,13 +74,13 @@ class LoggerImpl {
     final time = _getTime();
     final emoji = _getEmoji(logLevel);
     final levelName = _getLevelName(logLevel);
-    // final location = _getFileLocation();
+    final location = _getFileLocation();
 
     if (kDebugMode) {
       print(''); // Add a blank line for readability
       print('╔═══════════════════════════════════════════════════════════');
       print('║ $time | $emoji $levelName ${tag != null ? '[$tag]' : ''}');
-      // print('║ 📍 $location');
+      print('║ 📍 $location');
       print('║ 💭 $message');
 
       if (error != null) {
@@ -102,10 +88,11 @@ class LoggerImpl {
       }
 
       if (stackTrace != null) {
-        final formattedStack = _formatStackTrace(stackTrace);
         print('║ 📚 Stack trace:');
-        formattedStack.split('\n').forEach((line) {
-          print('║    $line');
+        Trace.from(stackTrace).frames.take(3).forEach((frame) {
+          if (!frame.member!.contains('LoggerImpl')) {
+            print('║    at ${frame.member} (${frame.uri}:${frame.line})');
+          }
         });
       }
 
@@ -114,28 +101,28 @@ class LoggerImpl {
     }
   }
 
-  String _getFileLocation() {
-    try {
-      final frames = StackTrace.current.toString().split('\n');
-      // Skip first frames that contain LoggerImpl and LoggerManager
-      int startIndex = 0;
-      while (startIndex < frames.length &&
-          (frames[startIndex].contains('LoggerImpl') ||
-              frames[startIndex].contains('LoggerManager') ||
-              frames[startIndex].contains('logger_manager'))) {
-        startIndex++;
-      }
-
-      for (var i = startIndex; i < frames.length; i++) {
-        final frame = frames[i];
-        final match = RegExp(r'package:.*?.dart:\d+').firstMatch(frame);
-        if (match != null) {
-          return match.group(0) ?? 'unknown location';
-        }
-      }
-      return 'unknown location';
-    } catch (e) {
-      return 'unknown location';
-    }
+  void enable() {
+    _isEnabled = true;
+    level = Level.verbose;
   }
+
+  void disable() {
+    _isEnabled = false;
+    level = Level.nothing;
+  }
+
+  void d(String message, {String? tag}) => _log(Level.debug, message, tag: tag);
+
+  void i(String message, {String? tag}) => _log(Level.info, message, tag: tag);
+
+  void w(String message, {String? tag}) =>
+      _log(Level.warning, message, tag: tag);
+
+  void e(String message,
+          {String? tag, dynamic error, StackTrace? stackTrace}) =>
+      _log(Level.error, message,
+          tag: tag, error: error, stackTrace: stackTrace);
+
+  void v(String message, {String? tag}) =>
+      _log(Level.verbose, message, tag: tag);
 }

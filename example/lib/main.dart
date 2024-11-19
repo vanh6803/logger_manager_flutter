@@ -7,6 +7,8 @@ import 'package:logger_manager/logger_manager.dart';
 void main() {
   LoggerManager.enable();
 
+  logd('Starting app...', tag: 'Main');
+
   runApp(const MyApp());
 }
 
@@ -59,7 +61,12 @@ class _MyAppState extends State<MyApp> {
         body: Center(
           child: TextButton(
               onPressed: () {
-                logd('Starting app...', tag: 'Main');
+                try {
+                  throw Exception('Something went wrong');
+                } catch (e, stackTrace) {
+                  loge('Error occurred',
+                      error: e, stackTrace: stackTrace, tag: 'Error');
+                }
               },
               child: Text('Running on: $_platformVersion\n')),
         ),
