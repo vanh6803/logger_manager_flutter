@@ -64,8 +64,7 @@ class _MyAppState extends State<MyApp> {
                 try {
                   throw Exception('Something went wrong');
                 } catch (e, stackTrace) {
-                  loge('Error occurred',
-                      error: e, stackTrace: stackTrace, tag: 'Error');
+                  loge('Error occurred', error: e, stackTrace: stackTrace, tag: 'Error');
                 }
               },
               child: Text('Running on: $_platformVersion\n')),
