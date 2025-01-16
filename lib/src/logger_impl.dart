@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/foundation.dart';
 import 'package:stack_trace/stack_trace.dart';
 
@@ -65,6 +67,24 @@ class LoggerImpl {
         "${now.millisecond.toString().padLeft(3, '0')}";
   }
 
+  // Hàm để map Level của bạn sang các mức log của developer.log
+  int _mapLevel(Level logLevel) {
+    switch (logLevel) {
+      case Level.verbose:
+        return 500;
+      case Level.debug:
+        return 700;
+      case Level.info:
+        return 800;
+      case Level.warning:
+        return 900;
+      case Level.error:
+        return 1000;
+      default:
+        return 800;
+    }
+  }
+
   void _log(Level logLevel, String message,
       {String? tag, dynamic error, StackTrace? stackTrace}) {
     if (!_isEnabled || level == Level.nothing || logLevel.index < level.index) {
@@ -77,27 +97,34 @@ class LoggerImpl {
     final location = _getFileLocation();
 
     if (kDebugMode) {
-      print(''); // Add a blank line for readability
-      print('╔═══════════════════════════════════════════════════════════');
-      print('║ $time | $emoji $levelName ${tag != null ? '[$tag]' : ''}');
-      print('║ 📍 $location');
-      print('║ 💭 $message');
+      final buffer = StringBuffer();
+      buffer.writeln("");
+      buffer.writeln('╔═══════════════════════════════════════════════════════════');
+      buffer.writeln('║ $time | $emoji $levelName ${tag != null ? '[$tag]' : ''}');
+      buffer.writeln('║ 📍 $location');
+      buffer.writeln('║ 💭 $message');
 
       if (error != null) {
-        print('║ ❌ Error: $error');
+        buffer.writeln('║ ❌ Error: $error');
       }
 
       if (stackTrace != null) {
-        print('║ 📚 Stack trace:');
+        buffer.writeln('║ 📚 Stack trace:');
         Trace.from(stackTrace).frames.take(3).forEach((frame) {
           if (!frame.member!.contains('LoggerImpl')) {
-            print('║    at ${frame.member} (${frame.uri}:${frame.line})');
+            buffer.writeln('║    at ${frame.member} (${frame.uri}:${frame.line})');
           }
         });
       }
 
-      print('╚═══════════════════════════════════════════════════════════');
-      print(''); // Add a blank line for readability
+      buffer.writeln('╚═══════════════════════════════════════════════════════════');
+
+      // Sử dụng developer.log với thông điệp đã được định dạng
+      developer.log(
+        buffer.toString(),
+        level: _mapLevel(logLevel),
+        name: 'Logger',
+      );
     }
   }
 
@@ -119,7 +146,7 @@ class LoggerImpl {
       _log(Level.warning, message, tag: tag);
 
   void e(String message,
-          {String? tag, dynamic error, StackTrace? stackTrace}) =>
+      {String? tag, dynamic error, StackTrace? stackTrace}) =>
       _log(Level.error, message,
           tag: tag, error: error, stackTrace: stackTrace);
 
